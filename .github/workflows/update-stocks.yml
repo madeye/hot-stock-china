@@ -11,8 +11,6 @@ on:
 # 设置权限
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 # 只允许一个并发部署
 concurrency:
@@ -45,31 +43,23 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # 创建临时目录保存生成的文件
-          mkdir -p /tmp/deploy
-          cp index.html /tmp/deploy/
+          # 保存生成的文件
+          cp index.html /tmp/index.html
 
-          # 切换到 gh-pages 分支
-          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
-          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          # 获取或创建 gh-pages 分支
+          git fetch origin gh-pages:gh-pages 2>/dev/null || true
 
-          # 清空当前目录并复制新文件
-          git rm -rf . 2>/dev/null || true
-          cp /tmp/deploy/index.html .
+          if git show-ref --verify --quiet refs/heads/gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+          fi
+
+          # 复制新文件
+          cp /tmp/index.html .
 
           # 提交并推送
           git add index.html
           git diff --staged --quiet || git commit -m "Update stock data - $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
-          git push origin gh-pages --force
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git push origin gh-pages
