@@ -115,8 +115,60 @@ def get_stock_kline_sina(stock_code, market, days=20):
 
     return []
 
+def get_stock_realtime_sina(stock_codes_with_market):
+    """使用新浪接口批量获取股票实时行情"""
+    # 构建新浪股票代码列表
+    symbols = []
+    for code, market in stock_codes_with_market:
+        if market == 1:  # 沪市
+            symbols.append(f"sh{code}")
+        else:  # 深市
+            symbols.append(f"sz{code}")
+
+    # 新浪接口支持批量查询
+    url = f"https://hq.sinajs.cn/list={','.join(symbols)}"
+    headers = {
+        **HEADERS,
+        'Host': 'hq.sinajs.cn',
+        'Referer': 'https://finance.sina.com.cn/',
+    }
+
+    stocks = {}
+    try:
+        response = SESSION.get(url, headers=headers, timeout=30)
+        response.encoding = 'gbk'
+        lines = response.text.strip().split('\n')
+
+        for line in lines:
+            if '=' not in line or '""' in line:
+                continue
+            # 解析格式: var hq_str_sh600519="贵州茅台,1800.00,..."
+            match = re.match(r'var hq_str_(\w+)="(.+)"', line)
+            if match:
+                symbol = match.group(1)
+                data = match.group(2).split(',')
+                if len(data) >= 32:
+                    code = symbol[2:]  # 去掉 sh/sz 前缀
+                    stocks[code] = {
+                        'code': code,
+                        'name': data[0],
+                        'open': float(data[1]) if data[1] else 0,
+                        'prev_close': float(data[2]) if data[2] else 0,
+                        'price': float(data[3]) if data[3] else 0,
+                        'high': float(data[4]) if data[4] else 0,
+                        'low': float(data[5]) if data[5] else 0,
+                        'volume': int(float(data[8])) if data[8] else 0,
+                        'amount': float(data[9]) if data[9] else 0,
+                        'change': float(data[3]) - float(data[2]) if data[3] and data[2] else 0,
+                        'change_pct': round((float(data[3]) - float(data[2])) / float(data[2]) * 100, 2) if data[3] and data[2] and float(data[2]) != 0 else 0,
+                    }
+    except Exception as e:
+        print(f"新浪接口获取实时行情失败: {e}")
+
+    return stocks
+
 def get_stock_realtime(stock_codes_with_market):
-    """批量获取股票实时行情"""
+    """批量获取股票实时行情（优先东方财富，失败则用新浪）"""
     secids = []
     for code, market in stock_codes_with_market:
         if market == 1:
@@ -146,24 +198,31 @@ def get_stock_realtime(stock_codes_with_market):
             stocks = {}
             for item in result['data']['diff']:
                 code = item.get('f12', '')
-                stocks[code] = {
-                    'code': code,
-                    'name': item.get('f14', ''),
-                    'price': item.get('f2', 0),
-                    'change_pct': item.get('f3', 0),
-                    'change': item.get('f4', 0),
-                    'high': item.get('f15', 0),
-                    'low': item.get('f16', 0),
-                    'open': item.get('f17', 0),
-                    'prev_close': item.get('f18', 0),
-                    'volume': item.get('f5', 0),
-                    'amount': item.get('f6', 0),
-                }
-            return stocks
+                name = item.get('f14', '')
+                price = item.get('f2', 0)
+                # 检查数据是否有效
+                if name and price and price != '-':
+                    stocks[code] = {
+                        'code': code,
+                        'name': name,
+                        'price': price if isinstance(price, (int, float)) else 0,
+                        'change_pct': item.get('f3', 0),
+                        'change': item.get('f4', 0),
+                        'high': item.get('f15', 0),
+                        'low': item.get('f16', 0),
+                        'open': item.get('f17', 0),
+                        'prev_close': item.get('f18', 0),
+                        'volume': item.get('f5', 0),
+                        'amount': item.get('f6', 0),
+                    }
+            if stocks:
+                return stocks
     except Exception as e:
-        print(f"获取实时行情失败: {e}")
+        print(f"东方财富接口获取实时行情失败: {e}")
 
-    return {}
+    # 东方财富失败，使用新浪接口
+    print("使用新浪接口获取实时行情...")
+    return get_stock_realtime_sina(stock_codes_with_market)
 
 def get_kline_batch(stock_codes_with_market):
     """批量获取K线数据"""
