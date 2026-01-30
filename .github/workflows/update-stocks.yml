@@ -40,13 +40,27 @@ jobs:
       - name: Fetch stock data and generate HTML
         run: python fetch_hot_stocks.py
 
-      - name: Commit and push changes
+      - name: Deploy to gh-pages branch
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+
+          # 创建临时目录保存生成的文件
+          mkdir -p /tmp/deploy
+          cp index.html /tmp/deploy/
+
+          # 切换到 gh-pages 分支
+          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+
+          # 清空当前目录并复制新文件
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/deploy/index.html .
+
+          # 提交并推送
           git add index.html
           git diff --staged --quiet || git commit -m "Update stock data - $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
-          git push
+          git push origin gh-pages --force
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
