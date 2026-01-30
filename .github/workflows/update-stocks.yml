@@ -43,17 +43,21 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # 保存生成的文件
+          # 保存生成的文件到临时位置
           cp index.html /tmp/index.html
 
-          # 获取或创建 gh-pages 分支
+          # 获取 gh-pages 分支
           git fetch origin gh-pages:gh-pages 2>/dev/null || true
+
+          # 清理工作区并切换分支
+          git stash --include-untracked
 
           if git show-ref --verify --quiet refs/heads/gh-pages; then
             git checkout gh-pages
           else
             git checkout --orphan gh-pages
-            git rm -rf .
+            git reset --hard
+            git clean -fd
           fi
 
           # 复制新文件
