@@ -446,7 +446,7 @@ def generate_html(stocks_data, kline_data):
 
     <div class="footer">
         <p>本页面仅供学习研究使用，不构成投资建议</p>
-        <p>数据来源：<a href="https://guba.eastmoney.com/rank/" target="_blank">东方财富股吧人气榜</a></p>
+        <p>数据来源：<a href="https://guba.eastmoney.com/rank/" target="_blank">东方财富股吧人气榜</a> | <a href="https://github.com/madeye/hot-stock-china" target="_blank">GitHub</a></p>
     </div>
 
     <script>
