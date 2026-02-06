@@ -11,6 +11,7 @@ on:
 # 设置权限
 permissions:
   contents: write
+  pages: write
 
 # 只允许一个并发部署
 concurrency:
@@ -67,3 +68,27 @@ jobs:
           git add index.html
           git diff --staged --quiet || git commit -m "Update stock data - $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
           git push origin gh-pages
+
+      - name: Configure GitHub Pages to use gh-pages branch
+        run: |
+          # Check if Pages is already configured
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")
+
+          if [ "$STATUS" = "200" ]; then
+            # Update existing Pages config
+            curl -s -X PUT \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/pages" \
+              -d '{"source":{"branch":"gh-pages","path":"/"}}'
+          else
+            # Create Pages config
+            curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/pages" \
+              -d '{"source":{"branch":"gh-pages","path":"/"}}'
+          fi
